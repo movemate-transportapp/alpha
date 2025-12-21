@@ -123,14 +123,12 @@
                 this.mockUser.last_trip_date = lastTripDate;
                 return;
             }
-            await dbClient.from('profiles').update({ 
-                points: newPoints,
-                streak: newStreak,
-                last_trip_date: lastTripDate
-            }).eq('id', uid);
+            const updateData = { points: newPoints, streak: newStreak };
+            if(lastTripDate) updateData.last_trip_date = lastTripDate;
+
+            await dbClient.from('profiles').update(updateData).eq('id', uid);
         }
 
-        // NEW: Wallet Transactions using DB
         async getWalletTransactions(uid) {
             if (uid === 'mock-123') return [];
             try {
@@ -190,7 +188,6 @@
             } catch (e) { return []; }
         }
 
-        // --- FUNGSI BARU UNTUK MENGHAPUS VOUCHER YANG DIGUNAKAN ---
         async useVoucher(inventoryId) {
             const uid = await this.getUserId();
             if (uid === 'mock-123') return;
@@ -311,7 +308,9 @@
       Plus: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
       Bill: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
       Shield: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-      Star: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Star: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+      Eye: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
+      EyeOff: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
     };
 
     function QRCodeRenderer({ text }) {
@@ -328,6 +327,7 @@
     function AuthScreen({ onLoginSuccess }) {
         const [email, setEmail] = useState("");
         const [password, setPassword] = useState("");
+        const [showPassword, setShowPassword] = useState(false);
         const [loading, setLoading] = useState(false);
         const [isSignUp, setIsSignUp] = useState(false);
         const [errorMsg, setErrorMsg] = useState("");
@@ -361,7 +361,23 @@
                     {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs rounded">{errorMsg}</div>}
                     <form onSubmit={handleAuth} className="space-y-4">
                         <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 rounded-lg border border-gray-200 outline-none" placeholder="nama@email.com" />
-                        <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 rounded-lg border border-gray-200 outline-none" placeholder="••••••••" />
+                        <div className="relative">
+                            <input 
+                                type={showPassword ? "text" : "password"} 
+                                required 
+                                value={password} 
+                                onChange={e => setPassword(e.target.value)} 
+                                className="w-full p-3 pr-12 rounded-lg border border-gray-200 outline-none" 
+                                placeholder="••••••••" 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => setShowPassword(!showPassword)} 
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-brand-blue"
+                            >
+                                {showPassword ? <Icons.EyeOff className="w-5 h-5"/> : <Icons.Eye className="w-5 h-5"/>}
+                            </button>
+                        </div>
                         <button type="submit" disabled={loading} className="w-full bg-brand-blue text-white py-3 rounded-xl font-bold clean-btn flex justify-center mt-6">{loading ? <div className="spinner w-5 h-5"></div> : (isSignUp ? "Daftar Sekarang" : "Masuk")}</button>
                     </form>
                     <button onClick={() => setIsSignUp(!isSignUp)} className="mt-4 text-sm text-brand-blue w-full text-center">{isSignUp ? "Sudah punya akun? Masuk" : "Buat akun baru"}</button>
@@ -466,7 +482,8 @@
             (payload) => {
               
               if (payload.eventType === 'INSERT') {
-                  handleTripDeduction();
+                  // Trip Started: Deduct Balance handled by SCANNER (DB logic)
+                  // User app just refreshes to show new balance
                   if (currentPage === 'qr') setCurrentPage('home'); 
                   alert("Tap In Berhasil! Saldo terpotong Rp 5.000.");
               } else if (payload.eventType === 'UPDATE' && payload.new.status === 'completed') {
@@ -568,15 +585,12 @@
       };
 
       const handleTripDeduction = async () => {
+          // NO CLIENT SIDE DEDUCTION
+          // Just refresh wallet history and user data to sync with backend changes done by Scanner
+          if (!userData) return;
           const freshUser = await backend.getUser();
-          if (!freshUser) return;
-          const cost = 5000;
-          const newBalance = (freshUser.balance || 0) - cost;
-          await backend.updateUserBalance(freshUser.id, newBalance);
-          await backend.addWalletTransaction(freshUser.id, -cost, 'Perjalanan Bus', 'debit');
-          
-          setUserData(prev => ({ ...prev, balance: newBalance }));
-          const wTrans = await backend.getWalletTransactions(freshUser.id);
+          setUserData(prev => ({ ...prev, balance: freshUser.balance }));
+          const wTrans = await backend.getWalletTransactions(userData.id);
           setWalletHistory(wTrans);
       };
 
@@ -706,9 +720,9 @@
               }
           }
 
-          const ticketPayload = { uid: userData.id, name: userData.name || 'Penumpang', type: "passenger_ticket", action: actionType };
+          const ticketPayload = { uid: userData.id, name: userData.name || 'Penumpang', type: "passenger_ticket", action: actionType, timestamp: Date.now() };
           setQrData({ type: actionType, code: JSON.stringify(ticketPayload) });
-          setTimer(30); setCurrentPage("qr"); 
+          setTimer(60); setCurrentPage("qr"); 
       };
 
       const getStreakMessage = () => {
@@ -921,40 +935,7 @@
                                         );
                                     })}
                                 </div>
-                                <div className="mt-2 text-center">
-                                    <button onClick={handleRescueStreak} className="w-full py-3 bg-brand-blue text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"><Icons.Shield className="w-5 h-5"/> Selamatkan Streak (100 Poin)</button>
-                                    <p className="text-[10px] text-gray-400 mt-2">Maks. 2x dalam 7 hari</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* MODAL HISTORY */}
-                {showHistoryModal && (
-                    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-pop">
-                        <div className="bg-white rounded-2xl w-full max-w-sm h-[70vh] flex flex-col shadow-2xl overflow-hidden">
-                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                <h3 className="font-bold text-gray-900">Riwayat Perjalanan</h3>
-                                <button onClick={() => setShowHistoryModal(false)} className="p-2 bg-white rounded-full text-gray-500 hover:bg-gray-100"><Icons.X className="w-5 h-5" /></button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                {tripHistory.length === 0 ? <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2"><p className="text-xs">Belum ada riwayat.</p></div> : 
-                                    tripHistory.map((trip, idx) => (
-                                        <div key={idx} className="clean-card p-3 border-l-4 border-l-brand-blue">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-xs text-gray-400">{trip.start_time}</p>
-                                                    <h4 className="font-bold text-gray-900 text-sm mt-1">{trip.start_station}</h4>
-                                                    <p className="text-xs text-gray-500">ke {trip.end_station || '...'}</p>
-                                                </div>
-                                                <div className={`text-xs font-bold px-2 py-1 rounded ${trip.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                    {trip.status === 'completed' ? `+${trip.points_earned || 0} Poin` : 'Aktif'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                }
+                                <p className="text-xs text-center text-gray-400">Klik hari yang terlewat untuk selamatkan streak</p>
                             </div>
                         </div>
                     </div>
@@ -1043,7 +1024,10 @@
 
                             {/* VOUCHER MENARIK HARI INI (BAWAH) */}
                             <div>
-                                <h3 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wide flex items-center gap-2"><span className="text-lg">🔥</span> Voucher Menarik Hari Ini</h3>
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2"><span className="text-lg">🔥</span> Voucher Menarik</h3>
+                                    <button onClick={() => setCurrentPage("rewards")} className="text-[10px] font-bold text-brand-blue bg-blue-50 px-2 py-1 rounded-lg">Lihat Semua</button>
+                                </div>
                                 <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
                                     {rewardList.filter(r => r.popular).map(r => (
                                         <div key={r.id} className="min-w-[200px] bg-white border border-gray-100 rounded-xl p-4 text-gray-900 relative overflow-hidden shadow-sm flex flex-col">
